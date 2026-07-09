@@ -128,6 +128,9 @@ docker-compose.yml
 
 - **projects** : `id, name, description`
 - **timelines** : `id, project_id, name, description, start_date, end_date, granularity, color`
-- **events** : `id, timeline_id, title, description, kind (point|period), start_date, start_time?, end_date?, color?`
+- **events** : `id, timeline_id, title, description, kind (point|period), start_date, start_time?, end_date?, end_time?, color?`
+
+Un évènement devient un **bloc** (period) automatiquement dès que sa fin tombe un autre jour
+que son début ; sinon c'est un **jalon** (point). Au survol, une carte affiche toutes ses infos.
 
 Suppressions en cascade (supprimer un projet supprime ses timelines et leurs évènements).

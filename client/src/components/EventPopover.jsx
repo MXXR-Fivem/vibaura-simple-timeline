@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.js'
 import { PALETTE } from '../colors.js'
-import { toDateInput, clampISO } from '../dates.js'
+import { toDateInput, addDaysISO, daysBetweenISO } from '../dates.js'
 import { IconTrash } from './Icons.jsx'
 
 const W = 300
@@ -10,12 +10,12 @@ export default function EventPopover({ timeline, event, prefillMs, anchorX, onCl
   const isNew = !event
   const baseDate = event?.start_date || (prefillMs != null ? toDateInput(prefillMs) : timeline.start_date)
   const [title, setTitle] = useState(event?.title || '')
-  const [date, setDate] = useState(baseDate)
-  const [time, setTime] = useState(event?.start_time || '')
-  const [block, setBlock] = useState(!!event?.end_date)
-  const [end, setEnd] = useState(event?.end_date || baseDate)
+  const [startDate, setStartDate] = useState(baseDate)
+  const [startTime, setStartTime] = useState(event?.start_time || '')
+  const [endDate, setEndDate] = useState(event?.end_date || baseDate)
+  const [endTime, setEndTime] = useState(event?.end_time || '')
   const [description, setDescription] = useState(event?.description || '')
-  const [color, setColor] = useState(event?.color || null) // null = couleur de la timeline
+  const [color, setColor] = useState(event?.color || null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const titleRef = useRef(null)
@@ -31,18 +31,33 @@ export default function EventPopover({ timeline, event, prefillMs, anchorX, onCl
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // Changer le début décale la fin de la même durée (et jamais avant le début).
+  function changeStart(nd) {
+    const delta = daysBetweenISO(startDate, nd)
+    let ne = addDaysISO(endDate, delta)
+    if (ne < nd) ne = nd
+    setStartDate(nd)
+    setEndDate(ne)
+  }
+  function changeEnd(nd) {
+    setEndDate(nd < startDate ? startDate : nd)
+  }
+
+  // Type déduit : bloc si ça déborde sur un autre jour, sinon jalon.
+  const isBlock = endDate > startDate
+  const span = daysBetweenISO(startDate, endDate) + 1
+
   async function save() {
-    if (!date) return setError('Date requise.')
-    if (block && end < date) return setError('La fin doit être après le début.')
     setBusy(true)
     try {
       const data = {
         title: title.trim() || 'Sans titre',
         description,
-        kind: block ? 'period' : 'point',
-        start_date: date,
-        start_time: time || null,
-        end_date: block ? end : null,
+        kind: isBlock ? 'period' : 'point',
+        start_date: startDate,
+        start_time: startTime || null,
+        end_date: isBlock ? endDate : null,
+        end_time: isBlock ? endTime || null : null,
         color,
       }
       if (isNew) await api.createEvent(timeline.id, data)
@@ -70,7 +85,13 @@ export default function EventPopover({ timeline, event, prefillMs, anchorX, onCl
   return (
     <>
       <div className="pop-scrim" onPointerDown={onClose} />
-      <div className="popover" style={{ left, top: 92, width: W }} role="dialog" aria-label="Évènement" onPointerDown={(e) => e.stopPropagation()}>
+      <div
+        className="popover"
+        style={{ left, top: 92, width: W }}
+        role="dialog"
+        aria-label="Évènement"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <input
           ref={titleRef}
           className="pop-title"
@@ -82,28 +103,30 @@ export default function EventPopover({ timeline, event, prefillMs, anchorX, onCl
             if (e.key === 'Enter') save()
           }}
         />
+
         <div className="row">
           <label className="fld">
-            <span>Date</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <span>Début</span>
+            <input type="date" value={startDate} onChange={(e) => changeStart(e.target.value)} />
           </label>
           <label className="fld">
             <span>Heure</span>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
           </label>
         </div>
-
-        <label className="check">
-          <input type="checkbox" checked={block} onChange={(e) => setBlock(e.target.checked)} /> Bloc sur plusieurs jours
-        </label>
-        {block && (
-          <label className="fld" style={{ marginTop: 10 }}>
+        <div className="row">
+          <label className="fld">
             <span>Fin</span>
-            <input type="date" value={end} min={date} onChange={(e) => setEnd(e.target.value)} />
+            <input type="date" value={endDate} min={startDate} onChange={(e) => changeEnd(e.target.value)} />
           </label>
-        )}
+          <label className="fld">
+            <span>Heure</span>
+            <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          </label>
+        </div>
+        <div className="pop-kind">{isBlock ? `Bloc · ${span} jours` : 'Jalon (un jour)'}</div>
 
-        <label className="fld" style={{ marginTop: 10 }}>
+        <label className="fld" style={{ marginTop: 12 }}>
           <span>Note</span>
           <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optionnel" />
         </label>

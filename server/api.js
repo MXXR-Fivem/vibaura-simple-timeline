@@ -200,14 +200,21 @@ function readEventBody(b, cur) {
   }
 
   let end_date = null
+  let end_time = null
   if (kind === 'period') {
     end_date = b.end_date !== undefined ? b.end_date : cur?.end_date
     if (!isDate(end_date)) return { error: 'invalid_end' }
     if (start_date > end_date) return { error: 'end_before_start' }
+    if (b.end_time !== undefined) {
+      end_time = b.end_time == null || b.end_time === '' ? null : b.end_time
+      if (end_time != null && !isTime(end_time)) return { error: 'invalid_end_time' }
+    } else {
+      end_time = cur?.end_time ?? null
+    }
   }
   let color = b.color !== undefined ? b.color : cur?.color
   if (color != null && !HEX_COLOR.test(color)) color = null
-  return { value: { title, description, kind, start_date, start_time, end_date, color: color ?? null } }
+  return { value: { title, description, kind, start_date, start_time, end_date, end_time, color: color ?? null } }
 }
 
 apiRouter.post('/timelines/:id/events', (req, res) => {
@@ -221,10 +228,10 @@ apiRouter.post('/timelines/:id/events', (req, res) => {
   const ts = now()
   const info = db
     .prepare(
-      `INSERT INTO events (timeline_id, title, description, kind, start_date, start_time, end_date, color, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`
+      `INSERT INTO events (timeline_id, title, description, kind, start_date, start_time, end_date, end_time, color, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
     )
-    .run(tid, v.title, v.description, v.kind, v.start_date, v.start_time, v.end_date, v.color, ts, ts)
+    .run(tid, v.title, v.description, v.kind, v.start_date, v.start_time, v.end_date, v.end_time, v.color, ts, ts)
   touchTimeline(tid)
   res.status(201).json(db.prepare('SELECT * FROM events WHERE id=?').get(info.lastInsertRowid))
 })
@@ -239,8 +246,8 @@ apiRouter.patch('/events/:id', (req, res) => {
   if (parsed.error) return bad(res, parsed.error)
   const v = parsed.value
   db.prepare(
-    `UPDATE events SET title=?, description=?, kind=?, start_date=?, start_time=?, end_date=?, color=?, updated_at=? WHERE id=?`
-  ).run(v.title, v.description, v.kind, v.start_date, v.start_time, v.end_date, v.color, now(), eid)
+    `UPDATE events SET title=?, description=?, kind=?, start_date=?, start_time=?, end_date=?, end_time=?, color=?, updated_at=? WHERE id=?`
+  ).run(v.title, v.description, v.kind, v.start_date, v.start_time, v.end_date, v.end_time, v.color, now(), eid)
   touchTimeline(cur.timeline_id)
   res.json(db.prepare('SELECT * FROM events WHERE id=?').get(eid))
 })

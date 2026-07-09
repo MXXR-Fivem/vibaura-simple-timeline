@@ -66,12 +66,29 @@ export function eventStartMs(ev) {
   }
   return base
 }
-// Fin (ms) d'un bloc : date de fin + 1 jour (le bloc couvre le jour de fin en entier). null si point.
+// Fin (ms) d'un bloc : heure de fin si présente, sinon fin de la journée de fin. null si point.
 export function eventEndMs(ev) {
-  return ev.end_date ? dateInputToMs(ev.end_date) + MS_DAY : null
+  if (!ev.end_date) return null
+  const base = dateInputToMs(ev.end_date)
+  if (ev.end_time) {
+    const [h, mi] = ev.end_time.split(':').map(Number)
+    return base + (h * 60 + mi) * 60000
+  }
+  return base + MS_DAY
 }
 // "lun. 12 mars"
 export function fmtDateShort(ms) {
   const d = new Date(ms)
   return `${DOWS[d.getDay()]}. ${d.getDate()} ${MONTHS[d.getMonth()]}`
+}
+// "lun. 12 mars 2026" à partir d'une date ISO
+export function fmtDateFull(iso) {
+  const d = new Date(dateInputToMs(iso))
+  return `${DOWS[d.getDay()]}. ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
+}
+export function addDaysISO(iso, n) {
+  return toDateInput(dateInputToMs(iso) + n * MS_DAY)
+}
+export function daysBetweenISO(a, b) {
+  return Math.round((dateInputToMs(b) - dateInputToMs(a)) / MS_DAY)
 }

@@ -309,19 +309,24 @@ textarea {
 .page {
   flex: 1;
   overflow-y: auto;
-  padding: 26px clamp(16px, 5vw, 44px);
+  padding: 40px clamp(16px, 5vw, 44px) 64px;
+}
+.page-inner {
+  max-width: 780px;
+  margin: 0 auto;
 }
 .page-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   gap: 16px;
-  margin: 4px 0 22px;
+  margin: 8px 0 26px;
   flex-wrap: wrap;
 }
 .page-head h1 {
-  font-size: 24px;
-  margin: 0 0 2px;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  margin: 0 0 3px;
 }
 .page-head p {
   margin: 0;
@@ -405,6 +410,84 @@ textarea {
   border-radius: 12px 0 0 12px;
 }
 
+/* index (listes projets / timelines) */
+.index {
+  border-top: 1px solid var(--border);
+}
+.row-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 6px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s, padding-left 0.12s;
+}
+.row-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  padding-left: 12px;
+}
+.ri-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ri-main {
+  flex: 1;
+  min-width: 0;
+}
+.ri-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ri-desc,
+.ri-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ri-sub {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.ri-arrow {
+  opacity: 0.5;
+  margin: 0 2px;
+}
+.ri-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ri-actions {
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.12s;
+  flex-shrink: 0;
+}
+.row-item:hover .ri-actions {
+  opacity: 1;
+}
+.ri-chev {
+  color: var(--muted);
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.row-item:hover .ri-chev {
+  opacity: 1;
+  color: var(--text);
+}
+
 .empty {
   text-align: center;
   padding: 64px 20px;
@@ -414,7 +497,7 @@ textarea {
   align-items: center;
   gap: 12px;
 }
-.empty svg {
+.empty > svg {
   color: rgba(255, 255, 255, 0.2);
 }
 
@@ -652,7 +735,6 @@ textarea {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 6px;
   width: 1px;
   background: rgba(255, 255, 255, 0.16);
 }
@@ -660,7 +742,6 @@ textarea {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 16px;
   white-space: nowrap;
   font-size: 12.5px;
   color: #f0f0f3;
@@ -685,10 +766,19 @@ textarea {
 }
 .blk {
   position: absolute;
-  transform: translateY(-50%);
   height: 22px;
   pointer-events: auto;
   cursor: pointer;
+}
+.blk.lane {
+  transform: translateY(-50%);
+}
+.blk-stem {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
 }
 .blk-fill {
   position: absolute;
@@ -715,6 +805,54 @@ textarea {
   left: 2px;
   right: auto;
   overflow: visible;
+}
+
+/* hover card d'évènement */
+.ev-hovercard {
+  position: fixed;
+  z-index: 30;
+  width: max-content;
+  max-width: 280px;
+  background: #191920;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.ehc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+}
+.ehc-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ehc-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ehc-date {
+  font-size: 12px;
+  color: var(--muted-2);
+  margin-top: 5px;
+  font-family: var(--mono);
+}
+.ehc-arrow {
+  opacity: 0.6;
+}
+.ehc-note {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 7px;
+  white-space: pre-wrap;
 }
 
 /* ---------- event popover ---------- */
@@ -746,6 +884,12 @@ textarea {
 .pop-title:focus {
   box-shadow: none;
   border-bottom-color: var(--border-strong);
+}
+.pop-kind {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 8px;
+  font-family: var(--mono);
 }
 .popover .row {
   display: flex;

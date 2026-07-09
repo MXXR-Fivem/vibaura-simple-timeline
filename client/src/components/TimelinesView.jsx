@@ -4,7 +4,7 @@ import { navigate, routes } from '../router.js'
 import Modal, { ColorField } from './Modal.jsx'
 import { PALETTE, colorForIndex } from '../colors.js'
 import { formatLong, todayISO } from '../dates.js'
-import { IconPlus, IconEdit, IconTrash, IconChevronLeft, IconCalendar } from './Icons.jsx'
+import { IconPlus, IconEdit, IconTrash, IconChevronLeft, IconChevronRight, IconCalendar } from './Icons.jsx'
 
 const GRANULARITIES = [
   { value: 'day', label: 'Jour' },
@@ -33,7 +33,7 @@ export default function TimelinesView({ projectId }) {
   }, [load, projectId])
 
   async function remove(tl) {
-    if (!window.confirm(`Supprimer la timeline « ${tl.name} » et ses événements ?`)) return
+    if (!window.confirm(`Supprimer la timeline « ${tl.name} » et ses évènements ?`)) return
     await api.deleteTimeline(tl.id)
     load()
   }
@@ -41,11 +41,13 @@ export default function TimelinesView({ projectId }) {
   if (missing) {
     return (
       <div className="page">
-        <button className="link-back" onClick={() => navigate(routes.projects())}>
-          <IconChevronLeft width={16} height={16} /> Projets
-        </button>
-        <div className="empty">
-          <p>Projet introuvable.</p>
+        <div className="page-inner">
+          <button className="link-back" onClick={() => navigate(routes.projects())}>
+            <IconChevronLeft width={16} height={16} /> Projets
+          </button>
+          <div className="empty">
+            <p>Projet introuvable.</p>
+          </div>
         </div>
       </div>
     )
@@ -53,58 +55,63 @@ export default function TimelinesView({ projectId }) {
 
   return (
     <div className="page">
-      <button className="link-back" onClick={() => navigate(routes.projects())}>
-        <IconChevronLeft width={16} height={16} /> Projets
-      </button>
-
-      <div className="page-head">
-        <div>
-          <h1>{project?.name || '…'}</h1>
-          {project?.description ? <p className="muted">{project.description}</p> : null}
-        </div>
-        <button className="btn btn-primary" onClick={() => setEditing('new')}>
-          <IconPlus /> Nouvelle timeline
+      <div className="page-inner">
+        <button className="link-back" onClick={() => navigate(routes.projects())}>
+          <IconChevronLeft width={16} height={16} /> Projets
         </button>
-      </div>
 
-      {timelines === null ? (
-        <div className="muted pad">Chargement…</div>
-      ) : timelines.length === 0 ? (
-        <div className="empty">
-          <IconCalendar width={40} height={40} />
-          <p>Aucune timeline dans ce projet.</p>
+        <header className="page-head">
+          <div>
+            <h1>{project?.name || '…'}</h1>
+            {project?.description ? <p className="muted">{project.description}</p> : null}
+          </div>
           <button className="btn btn-primary" onClick={() => setEditing('new')}>
-            <IconPlus /> Créer une timeline
+            <IconPlus /> Nouvelle timeline
           </button>
-        </div>
-      ) : (
-        <div className="card-grid">
-          {timelines.map((tl) => (
-            <div
-              key={tl.id}
-              className="card timeline-card"
-              onClick={() => navigate(routes.timeline(projectId, tl.id))}
-            >
-              <span className="tl-stripe" style={{ background: tl.color }} />
-              <div className="card-actions" onClick={(e) => e.stopPropagation()}>
-                <button className="icon-btn sm" title="Modifier" onClick={() => setEditing(tl)}>
-                  <IconEdit width={15} height={15} />
-                </button>
-                <button className="icon-btn sm danger" title="Supprimer" onClick={() => remove(tl)}>
-                  <IconTrash width={15} height={15} />
-                </button>
+        </header>
+
+        {timelines === null ? (
+          <div className="muted pad">Chargement…</div>
+        ) : timelines.length === 0 ? (
+          <div className="empty">
+            <IconCalendar width={40} height={40} />
+            <p>Aucune timeline dans ce projet.</p>
+            <button className="btn btn-primary" onClick={() => setEditing('new')}>
+              <IconPlus /> Créer une timeline
+            </button>
+          </div>
+        ) : (
+          <div className="index">
+            {timelines.map((tl) => (
+              <div
+                key={tl.id}
+                className="row-item"
+                onClick={() => navigate(routes.timeline(projectId, tl.id))}
+              >
+                <span className="ri-dot" style={{ background: tl.color }} />
+                <div className="ri-main">
+                  <div className="ri-title">{tl.name}</div>
+                  <div className="ri-sub">
+                    {formatLong(tl.start_date)} <span className="ri-arrow">→</span> {formatLong(tl.end_date)}
+                  </div>
+                </div>
+                <div className="ri-meta">
+                  {tl.event_count} évènement{tl.event_count > 1 ? 's' : ''}
+                </div>
+                <div className="ri-actions" onClick={(e) => e.stopPropagation()}>
+                  <button className="icon-btn sm" title="Modifier" onClick={() => setEditing(tl)}>
+                    <IconEdit width={15} height={15} />
+                  </button>
+                  <button className="icon-btn sm danger" title="Supprimer" onClick={() => remove(tl)}>
+                    <IconTrash width={15} height={15} />
+                  </button>
+                </div>
+                <IconChevronRight className="ri-chev" width={18} height={18} />
               </div>
-              <h3>{tl.name}</h3>
-              <div className="card-desc muted">
-                {formatLong(tl.start_date)} → {formatLong(tl.end_date)}
-              </div>
-              <div className="card-foot muted">
-                {tl.event_count} évènement{tl.event_count > 1 ? 's' : ''}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {editing && (
         <TimelineForm
@@ -144,7 +151,7 @@ export function TimelineForm({ projectId, timeline, defaultColor, onClose, onSav
       else await api.createTimeline(projectId, data)
       onSaved()
     } catch {
-      setError('Échec de l\'enregistrement.')
+      setError("Échec de l'enregistrement.")
       setBusy(false)
     }
   }

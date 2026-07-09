@@ -15,6 +15,7 @@ import {
   eventEndMs,
   toTimeInput,
   fmtDateShort,
+  fmtDateFull,
 } from '../dates.js'
 
 const MIN_PX = 0.02
@@ -89,6 +90,7 @@ const Timeline = forwardRef(function Timeline(
   const canvasRef = useRef(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [, setFrame] = useState(0)
+  const [hovered, setHovered] = useState(null) // { ev, rect } pour la card au survol
 
   // vue impérative (pan/zoom dans des refs => pas de re-render pendant le drag)
   const originTimeRef = useRef(dateInputToMs(timeline.start_date))
@@ -162,19 +164,21 @@ const Timeline = forwardRef(function Timeline(
     }
     ctx.setLineDash([])
 
-    const baseY = mode === 'single' ? Math.round(h * 0.5) : 48
+    // règle toujours en haut (évite la collision avec les événements sous la ligne)
+    const rulerY = 48
 
-    // ligne centrale (mode single)
+    // ligne centrale (mode single) au milieu de l'écran
     if (mode === 'single') {
+      const centerLineY = Math.round(h * 0.5)
       ctx.strokeStyle = 'rgba(244,244,246,0.92)'
       ctx.lineWidth = 1.5
       ctx.beginPath()
-      ctx.moveTo(0, baseY + 0.5)
-      ctx.lineTo(w, baseY + 0.5)
+      ctx.moveTo(0, centerLineY + 0.5)
+      ctx.lineTo(w, centerLineY + 0.5)
       ctx.stroke()
     }
 
-    drawRuler(ctx, baseY, sm, out, ppd, xOf)
+    drawRuler(ctx, rulerY, sm, out, ppd, xOf)
     drawToday(ctx, w, h, xOf)
     if (hoverRef.current != null) drawHover(ctx, hoverRef.current, h, tOf)
   }, [size, mode, startMs, endMs, xOf, tOf])
@@ -293,6 +297,7 @@ const Timeline = forwardRef(function Timeline(
       suppressClickRef.current = true
       return
     }
+    setHovered(null)
     appRef.current.setPointerCapture?.(e.pointerId)
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     if (pointers.current.size === 1) {
@@ -349,6 +354,7 @@ const Timeline = forwardRef(function Timeline(
   }
   function onPointerLeave() {
     hoverRef.current = null
+    setHovered(null)
     scheduleDraw()
   }
 
@@ -365,14 +371,27 @@ const Timeline = forwardRef(function Timeline(
     .filter((it) => it.x2 > -220 && it.x < size.w + 220)
 
   if (mode === 'single') {
-    const rows = []
-    for (const it of items.filter((i) => !i.isBlock).sort((a, b) => a.s - b.s)) {
-      const wpx = 26 + (it.ev.title.length * 6.4 || 0) + (it.ev.start_time ? 34 : 0)
-      let r = 0
-      while (rows[r] != null && it.x - wpx / 2 < rows[r] + 12) r++
-      rows[r] = it.x + wpx / 2
+    // événements répartis au-dessus ET en-dessous de la ligne (jamais dessus)
+    const gap = 12
+    const above = []
+    const below = []
+    const sorted = [...items].sort((a, b) => a.s - b.s)
+    sorted.forEach((it, i) => {
+      const w = it.isBlock
+        ? Math.max(60, it.x2 - it.x)
+        : Math.max(80, 26 + it.ev.title.length * 6.4 + (it.ev.start_time ? 34 : 0))
+      const left = it.isBlock ? it.x : it.x - w / 2
+      const right = it.isBlock ? Math.max(it.x2, it.x + w) : it.x + w / 2
+      const side = i % 2 === 0 ? 'above' : 'below'
+      const lanes = side === 'above' ? above : below
+      let r = lanes.findIndex((end) => left >= end + gap)
+      if (r === -1) {
+        r = lanes.length
+        lanes.push(right)
+      } else lanes[r] = right
+      it.side = side
       it.row = r
-    }
+    })
   } else {
     const gap = 8
     const laneEnds = []
@@ -399,24 +418,40 @@ const Timeline = forwardRef(function Timeline(
       e.stopPropagation()
       onEditEvent(it.ev, e.clientX)
     }
+    const hov = {
+      onMouseEnter: (e) => setHovered({ ev: it.ev, rect: e.currentTarget.getBoundingClientRect() }),
+      onMouseLeave: () => setHovered(null),
+    }
     const time = it.ev.start_time ? toTimeInput(it.s) : null
 
     if (mode === 'single') {
+      const side = it.side || 'above'
       if (it.isBlock) {
         const w = Math.max(6, it.x2 - it.x)
+        const BLK_H = 22
+        const off = 22 + it.row * 30
+        const barTop = side === 'above' ? centerY - off - BLK_H : centerY + off
         return (
-          <div key={it.ev.id} className="blk" style={{ left: it.x, top: centerY, width: w }} onPointerDown={stop} onClick={edit}>
+          <div
+            key={it.ev.id}
+            className={'blk ' + side}
+            style={{ left: it.x, top: barTop, width: w, height: BLK_H }}
+            onPointerDown={stop}
+            onClick={edit}
+            {...hov}
+          >
+            <span className="blk-stem" style={side === 'above' ? { top: BLK_H, height: off } : { top: -off, height: off }} />
             <span className="blk-fill" style={{ background: tint(it.color, 0.16), borderColor: it.color }} />
-            <span className={'blk-lbl' + (w < 74 ? ' above' : '')}>{it.ev.title}</span>
+            <span className="blk-lbl">{it.ev.title}</span>
           </div>
         )
       }
-      const off = 16 + it.row * 22
+      const off = 22 + it.row * 24
       return (
-        <div key={it.ev.id} className="pt" style={{ left: it.x, top: centerY }} onPointerDown={stop} onClick={edit}>
-          <span className="stem" style={{ height: off - 8 }} />
+        <div key={it.ev.id} className={'pt ' + side} style={{ left: it.x, top: centerY }} onPointerDown={stop} onClick={edit} {...hov}>
+          <span className="stem" style={side === 'above' ? { bottom: 6, height: off - 8 } : { top: 6, height: off - 8 }} />
           <span className="dot" style={{ background: it.color }} />
-          <span className="lbl" style={{ bottom: off }}>
+          <span className="lbl" style={side === 'above' ? { bottom: off } : { top: off }}>
             {it.ev.title}
             {time && <span className="lbl-time"> {time}</span>}
           </span>
@@ -427,14 +462,14 @@ const Timeline = forwardRef(function Timeline(
     if (it.isBlock) {
       const w = Math.max(6, it.x2 - it.x)
       return (
-        <div key={it.ev.id} className="blk lane" style={{ left: it.x, top: it.laneY, width: w }} onPointerDown={stop} onClick={edit}>
+        <div key={it.ev.id} className="blk lane" style={{ left: it.x, top: it.laneY, width: w }} onPointerDown={stop} onClick={edit} {...hov}>
           <span className="blk-fill" style={{ background: tint(it.color, 0.18), borderColor: it.color }} />
           <span className="blk-lbl">{it.ev.title}</span>
         </div>
       )
     }
     return (
-      <div key={it.ev.id} className="pt lane" style={{ left: it.x, top: it.laneY }} onPointerDown={stop} onClick={edit}>
+      <div key={it.ev.id} className="pt lane" style={{ left: it.x, top: it.laneY }} onPointerDown={stop} onClick={edit} {...hov}>
         <span className="dot" style={{ background: it.color }} />
         <span className="lbl-right">
           {it.ev.title}
@@ -456,9 +491,40 @@ const Timeline = forwardRef(function Timeline(
     >
       <canvas className="tl-grid" ref={canvasRef} />
       <div className="tl-events">{items.map(renderItem)}</div>
+      {hovered && <EventHoverCard ev={hovered.ev} rect={hovered.rect} timeline={timeline} />}
     </div>
   )
 })
+
+function EventHoverCard({ ev, rect, timeline }) {
+  const color = ev.color || timeline.color
+  const isBlock = !!ev.end_date
+  const startLine = fmtDateFull(ev.start_date) + (ev.start_time ? ` · ${ev.start_time}` : '')
+  const winW = typeof window !== 'undefined' ? window.innerWidth : 1024
+  const left = Math.max(150, Math.min(rect.left + rect.width / 2, winW - 150))
+  const above = rect.top > 150
+  const style = above
+    ? { left, top: rect.top - 10, transform: 'translate(-50%,-100%)' }
+    : { left, top: rect.bottom + 10, transform: 'translate(-50%,0)' }
+  return (
+    <div className="ev-hovercard" style={style}>
+      <div className="ehc-head">
+        <span className="ehc-dot" style={{ background: color }} />
+        <span className="ehc-title">{ev.title}</span>
+      </div>
+      <div className="ehc-date">
+        {startLine}
+        {isBlock && (
+          <>
+            <span className="ehc-arrow"> → </span>
+            {fmtDateFull(ev.end_date) + (ev.end_time ? ` · ${ev.end_time}` : '')}
+          </>
+        )}
+      </div>
+      {ev.description && <div className="ehc-note">{ev.description}</div>}
+    </div>
+  )
+}
 
 // ---------- canvas primitives ----------
 function tickMark(ctx, x, y, h, color) {

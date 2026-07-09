@@ -40,6 +40,7 @@ db.exec(`
     start_date  TEXT NOT NULL,
     start_time  TEXT,
     end_date    TEXT,
+    end_time    TEXT,
     color       TEXT,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
@@ -53,6 +54,9 @@ db.exec(`
 const eventCols = db.prepare('PRAGMA table_info(events)').all().map((c) => c.name)
 if (!eventCols.includes('start_time')) {
   db.exec('ALTER TABLE events ADD COLUMN start_time TEXT')
+}
+if (!eventCols.includes('end_time')) {
+  db.exec('ALTER TABLE events ADD COLUMN end_time TEXT')
 }
 
 export function now() {
