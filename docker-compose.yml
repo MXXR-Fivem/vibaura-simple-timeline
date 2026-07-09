@@ -1,0 +1,19 @@
+services:
+  timeline:
+    build: .
+    image: vibaura-simple-timeline
+    container_name: vibaura-timeline
+    restart: unless-stopped
+    # .env optionnel : Compose ne plante pas s'il manque. Le conteneur, lui,
+    # refuse de démarrer sans AUTH_PASSWORD / SESSION_SECRET (fail-fast dans les logs).
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+    # Exposé uniquement en local : c'est nginx (sur l'hôte) qui proxy vers ce port.
+    # Retire "127.0.0.1:" si tu veux l'atteindre directement depuis le réseau.
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - ./data:/app/data
