@@ -12,8 +12,8 @@ services:
     environment:
       NODE_ENV: production
     # Exposé uniquement en local : c'est nginx (sur l'hôte) qui proxy vers ce port.
-    # Retire "127.0.0.1:" si tu veux l'atteindre directement depuis le réseau.
+    # Le port vient du .env (PORT), 8790 par défaut. Retire "127.0.0.1:" pour l'exposer au réseau.
     ports:
-      - "127.0.0.1:3001:3001"
+      - "127.0.0.1:${PORT:-8790}:${PORT:-8790}"
     volumes:
       - ./data:/app/data

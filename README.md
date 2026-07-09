@@ -13,8 +13,7 @@ sur chaque timeline on ajoute des **évènements** (jalon ou période) en un cli
 
 ## Fonctionnement de la frise
 
-Une **ligne blanche sur fond sombre**, zoomable/pannable façon Figma (inspirée du prototype
-`old/ligne-kit/ligne.html`).
+Une **ligne blanche sur fond sombre**, zoomable/pannable façon Figma.
 
 - **Ajouter un évènement** : clic sur la frise → un popover s'ouvre pré-rempli à cette date.
   Titre, date, **heure optionnelle**, ou **bloc sur plusieurs jours**, couleur.
@@ -37,15 +36,15 @@ Une **ligne blanche sur fond sombre**, zoomable/pannable façon Figma (inspirée
 ```bash
 cp .env.example .env      # ajuste AUTH_USERNAME / AUTH_PASSWORD / SESSION_SECRET
 npm install
-npm run dev               # front sur http://localhost:5173, API sur :3001
+npm run dev               # front sur http://localhost:5173, API sur :8790
 ```
 
-Vite (port 5173) proxifie `/api` vers le serveur Express (port 3001).
+Vite (port 5173) proxifie `/api` vers le serveur Express (port 8790).
 
 Pour tester le rendu de production en local :
 
 ```bash
-npm run preview           # build le front puis sert tout via Express sur :3001
+npm run preview           # build le front puis sert tout via Express sur :8790
 ```
 
 ---
@@ -60,7 +59,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-- L'app écoute sur **`127.0.0.1:3001`** (uniquement en local sur la VM).
+- L'app écoute sur **`127.0.0.1:8790`** (uniquement en local sur la VM).
 - Les données SQLite sont persistées dans **`./data/`** (volume monté).
 - Ton nginx fait le proxy HTTPS → voir `nginx.example.conf`.
 
@@ -71,7 +70,7 @@ docker compose up -d --build
 | `AUTH_USERNAME`  | Identifiant partagé                                         |
 | `AUTH_PASSWORD`  | Mot de passe partagé                                        |
 | `SESSION_SECRET` | Secret de signature des cookies (chaîne aléatoire longue)   |
-| `PORT`           | Port interne du serveur (défaut `3001`)                     |
+| `PORT`           | Port interne du serveur (défaut `8790`)                     |
 | `DB_PATH`        | Chemin du fichier SQLite (défaut `./data/timeline.db`)      |
 | `NODE_ENV`       | `production` → cookies `secure` (HTTPS via nginx)           |
 
@@ -86,7 +85,7 @@ Bloc d'exemple fourni dans [`nginx.example.conf`](./nginx.example.conf). L'essen
 
 ```nginx
 location / {
-    proxy_pass http://127.0.0.1:3001;
+    proxy_pass http://127.0.0.1:8790;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -129,6 +128,6 @@ docker-compose.yml
 
 - **projects** : `id, name, description`
 - **timelines** : `id, project_id, name, description, start_date, end_date, granularity, color`
-- **events** : `id, timeline_id, title, description, kind (point|period), start_date, end_date, color`
+- **events** : `id, timeline_id, title, description, kind (point|period), start_date, start_time?, end_date?, color?`
 
 Suppressions en cascade (supprimer un projet supprime ses timelines et leurs évènements).

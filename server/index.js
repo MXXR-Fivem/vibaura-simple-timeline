@@ -98,7 +98,7 @@ if (fs.existsSync(distDir)) {
   })
 }
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 8790
 app.listen(PORT, () => {
   console.log(`Timeline server prêt sur http://localhost:${PORT}`)
   if (usingInsecureDefaults) {
