@@ -25,9 +25,17 @@ RUN npm prune --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY server ./server
 
-# SQLite file lives here (mount a volume to persist it).
-RUN mkdir -p /app/data
+# SQLite file lives here (mount a volume to persist it). The runtime runs as the
+# unprivileged `node` user (uid 1000) — least privilege + host data files stay
+# owned by uid 1000 instead of root.
+RUN mkdir -p /app/data && chown -R node:node /app/data
 VOLUME ["/app/data"]
+USER node
 
-EXPOSE 3001
+EXPOSE 8790
+
+# /api/me répond vite (401 sans session) => process vivant. `PORT` par défaut 8790.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8790)+'/api/me').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
+
 CMD ["node", "server/index.js"]

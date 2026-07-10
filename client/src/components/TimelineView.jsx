@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api.js'
-import { navigate, routes } from '../router.js'
-import { dateInputToMs, MS_DAY, formatLong } from '../dates.js'
-import Timeline from './Timeline.jsx'
+import { navigate, routes } from '../lib/router.js'
+import { dateInputToMs, MS_DAY, formatLong } from '../lib/dates.js'
+import { useEntity } from '../hooks/useEntity.js'
+import { usePolling } from '../hooks/usePolling.js'
+import Timeline from '../timeline/Timeline.jsx'
 import EventPopover from './EventPopover.jsx'
-import { TimelineForm } from './TimelinesView.jsx'
+import TimelineForm from './TimelineForm.jsx'
 import { IconChevronLeft, IconPlus, IconMinus, IconFit, IconEdit, IconClock } from './Icons.jsx'
 
 export default function TimelineView({ projectId, timelineId }) {
-  const [timeline, setTimeline] = useState(null)
+  const tlEntity = useEntity(() => api.getTimeline(timelineId), [timelineId])
+  const timeline = tlEntity.entity
   const [events, setEvents] = useState(null) // null = chargement
   const [eventsError, setEventsError] = useState('')
   const [projectName, setProjectName] = useState('')
   const [editor, setEditor] = useState(null) // null | { event, anchorX } | { prefillMs, anchorX }
   const [editingMeta, setEditingMeta] = useState(false)
-  const [missing, setMissing] = useState(false)
   const [mode, setMode] = useState('single')
   const tlRef = useRef(null)
 
@@ -29,23 +31,14 @@ export default function TimelineView({ projectId, timelineId }) {
         .catch(() => setEventsError('Impossible de charger les évènements.')),
     [timelineId]
   )
-  const loadMeta = useCallback(() => {
-    setMissing(false)
-    return api.getTimeline(timelineId).then(setTimeline).catch(() => setMissing(true))
-  }, [timelineId])
 
   useEffect(() => {
-    loadMeta()
-    loadEvents()
     api.getProject(projectId).then((p) => setProjectName(p.name)).catch(() => {})
-  }, [loadMeta, loadEvents, projectId])
+  }, [projectId])
 
+  // Polling des évènements toutes les 4 s, en pause pendant l'édition.
   const editorOpen = editor !== null || editingMeta
-  useEffect(() => {
-    if (editorOpen) return // polling en pause pendant l'édition
-    const t = setInterval(loadEvents, 4000)
-    return () => clearInterval(t)
-  }, [editorOpen, loadEvents])
+  usePolling(loadEvents, 4000, { enabled: !editorOpen })
 
   function openAdd() {
     if (!timeline) return
@@ -55,7 +48,8 @@ export default function TimelineView({ projectId, timelineId }) {
     setEditor({ prefillMs: ms, anchorX: window.innerWidth / 2 })
   }
 
-  if (missing) {
+  if (tlEntity.status === 'missing' || tlEntity.status === 'error') {
+    const isMissing = tlEntity.status === 'missing'
     return (
       <div className="tl-page">
         <div className="tl-toolbar">
@@ -64,7 +58,12 @@ export default function TimelineView({ projectId, timelineId }) {
           </button>
         </div>
         <div className="empty">
-          <p>Timeline introuvable.</p>
+          <p>{isMissing ? 'Timeline introuvable.' : 'Impossible de charger cette timeline.'}</p>
+          {!isMissing && (
+            <button className="btn" onClick={() => tlEntity.reload()}>
+              Réessayer
+            </button>
+          )}
         </div>
       </div>
     )
@@ -173,7 +172,7 @@ export default function TimelineView({ projectId, timelineId }) {
           onClose={() => setEditingMeta(false)}
           onSaved={() => {
             setEditingMeta(false)
-            loadMeta()
+            tlEntity.reload()
           }}
         />
       )}

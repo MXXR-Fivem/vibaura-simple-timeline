@@ -1,21 +1,27 @@
 import crypto from 'node:crypto'
+import { config } from './config.js'
 
-const USERNAME = process.env.AUTH_USERNAME || 'vibaura'
-const PASSWORD = process.env.AUTH_PASSWORD || 'changeme'
-const SECRET = process.env.SESSION_SECRET || 'dev-insecure-secret-change-me'
 const COOKIE = 'sid'
 const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30 // 30 jours
 
-export const usingInsecureDefaults =
-  (!process.env.AUTH_PASSWORD || process.env.AUTH_PASSWORD === 'changeme') ||
-  !process.env.SESSION_SECRET
-
-function sign(value) {
-  return crypto.createHmac('sha256', SECRET).update(value).digest('base64url')
+// Empreinte dérivée des identifiants courants : incorporée au token signé, elle
+// invalide toutes les sessions dès que le username OU le mot de passe change.
+function credentialFingerprint() {
+  return crypto
+    .createHmac('sha256', config.secret)
+    .update(`${config.username}:${config.password}`)
+    .digest('base64url')
+    .slice(0, 16)
 }
 
-function makeToken(username) {
-  const payload = Buffer.from(JSON.stringify({ u: username, iat: Date.now() })).toString('base64url')
+function sign(value) {
+  return crypto.createHmac('sha256', config.secret).update(value).digest('base64url')
+}
+
+function makeToken() {
+  const payload = Buffer.from(
+    JSON.stringify({ u: config.username, f: credentialFingerprint(), iat: Date.now() })
+  ).toString('base64url')
   return `${payload}.${sign(payload)}`
 }
 
@@ -25,13 +31,13 @@ function verifyToken(token) {
   if (dot <= 0) return null
   const payload = token.slice(0, dot)
   const sig = token.slice(dot + 1)
-  const expected = sign(payload)
   const a = Buffer.from(sig)
-  const b = Buffer.from(expected)
+  const b = Buffer.from(sign(payload))
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString())
-    if (data.u !== USERNAME) return null // identifiants changés => sessions invalidées
+    if (data.u !== config.username) return null
+    if (data.f !== credentialFingerprint()) return null // identifiants changés => sessions invalidées
     if (!Number.isFinite(data.iat) || Date.now() - data.iat > MAX_AGE_MS) return null
     return data
   } catch {
@@ -39,25 +45,26 @@ function verifyToken(token) {
   }
 }
 
+// Comparaison à temps constant SANS fuite de longueur : on hache les deux côtés
+// vers des empreintes de taille fixe avant de comparer.
 function safeEqual(a, b) {
-  const ab = Buffer.from(String(a))
-  const bb = Buffer.from(String(b))
-  if (ab.length !== bb.length) return false
-  return crypto.timingSafeEqual(ab, bb)
+  const ha = crypto.createHash('sha256').update(String(a)).digest()
+  const hb = crypto.createHash('sha256').update(String(b)).digest()
+  return crypto.timingSafeEqual(ha, hb)
 }
 
 export function checkCredentials(username, password) {
   // On évalue les deux pour ne pas court-circuiter selon le champ.
-  const okUser = safeEqual(username ?? '', USERNAME)
-  const okPass = safeEqual(password ?? '', PASSWORD)
+  const okUser = safeEqual(username ?? '', config.username)
+  const okPass = safeEqual(password ?? '', config.password)
   return okUser && okPass
 }
 
-export function setSession(res, username) {
-  res.cookie(COOKIE, makeToken(username), {
+export function setSession(res) {
+  res.cookie(COOKIE, makeToken(), {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.isProduction,
     maxAge: MAX_AGE_MS,
     path: '/',
   })
@@ -68,8 +75,7 @@ export function clearSession(res) {
 }
 
 export function currentUser(req) {
-  const data = verifyToken(req.cookies?.[COOKIE])
-  return data?.u || null
+  return verifyToken(req.cookies?.[COOKIE])?.u || null
 }
 
 export function requireAuth(req, res, next) {

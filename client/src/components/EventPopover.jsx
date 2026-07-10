@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.js'
-import { PALETTE } from '../colors.js'
-import { toDateInput, addDaysISO, daysBetweenISO } from '../dates.js'
+import { PALETTE } from '../lib/colors.js'
+import { toDateInput, addDaysISO, daysBetweenISO } from '../lib/dates.js'
 import { IconTrash } from './Icons.jsx'
 
 const W = 300

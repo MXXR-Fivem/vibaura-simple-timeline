@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api.js'
-import { useHashRoute, navigate, routes } from './router.js'
+import { useHashRoute, navigate, routes } from './lib/router.js'
 import Login from './components/Login.jsx'
 import ProjectsView from './components/ProjectsView.jsx'
 import TimelinesView from './components/TimelinesView.jsx'

@@ -98,11 +98,25 @@ L'app utilise `trust proxy` et pose des cookies `Secure` en production : sers-la
 
 ## Sauvegarde
 
-Toutes les données tiennent dans le dossier `data/`. Pour sauvegarder, copie-le
-(conteneur idéalement arrêté ou via `sqlite3 .backup`) :
+Toutes les données tiennent dans un seul fichier SQLite (`data/timeline.db`), mais
+il est ouvert en mode **WAL** : les dernières écritures vivent dans `-wal` tant qu'un
+checkpoint n'a pas eu lieu. Un `cp` à chaud du seul `.db` peut donc perdre des données.
+
+**Sauvegarde à chaud, cohérente (recommandé)** — snapshot atomique via SQLite :
 
 ```bash
+sqlite3 data/timeline.db ".backup 'data/backup-$(date +%F).db'"
+# ou, depuis le conteneur :
+docker compose exec timeline \
+  node -e "require('better-sqlite3')('/app/data/timeline.db').backup('/app/data/backup-'+new Date().toISOString().slice(0,10)+'.db')"
+```
+
+**Sauvegarde par copie** — uniquement conteneur **arrêté** (sinon WAL incohérent) :
+
+```bash
+docker compose down
 cp -r data data-backup-$(date +%F)
+docker compose up -d
 ```
 
 ---
@@ -110,18 +124,39 @@ cp -r data data-backup-$(date +%F)
 ## Structure
 
 ```
-server/           API Express + SQLite
-  index.js        serveur, auth publique, static + fallback SPA
-  api.js          endpoints projets / timelines / évènements
-  db.js           connexion SQLite + schéma
-  auth.js         login partagé, cookie de session signé (HMAC)
-client/           front React (Vite)
-  src/
-    App.jsx       auth + routing par hash
-    components/   vues + composant Timeline (zoom / pan / lanes)
-    dates.js      maths de dates + graduations adaptatives
-Dockerfile        build multi-stage (front + runtime)
+server/                 API Express + SQLite
+  index.js              bootstrap : middlewares, montage routes, static/SPA, arrêt propre
+  config.js             lecture unique de l'env + garde-fou (refuse les valeurs d'exemple)
+  auth.js               session cookie signé (HMAC lié aux identifiants), comparaison sûre
+  validation.js         validateurs partagés (dates ISO, heures, couleurs, id)
+  middleware/
+    rateLimit.js        throttle mémoire de /api/login
+  routes/
+    auth.js             login / logout / me (public)
+    projects.js         CRUD projets
+    timelines.js        CRUD timelines
+    events.js           CRUD évènements (+ normalisation jalon/bloc)
+    helpers.js          bad(), touch parent (updated_at)
+    index.js            compose les routers protégés
+  db/
+    index.js            connexion SQLite + pragmas (WAL, busy_timeout)
+    schema.js           schéma initial
+    migrate.js          migrations versionnées (PRAGMA user_version)
+
+client/src/             front React (Vite)
+  App.jsx               auth + routing par hash
+  api.js                client HTTP (fetch, même origine)
+  lib/                  utilitaires purs : dates.js, colors.js, router.js
+  hooks/                usePolling (rafraîchissement), useEntity (404 vs erreur)
+  components/           vues, formulaires (Project/Timeline), Login, Modal, EventPopover
+  timeline/
+    Timeline.jsx        composant (zoom / pan / gestes, rendu des évènements)
+    canvas.js           dessin du décor (graduations, règle, marqueurs)
+    layout.js           placement des évènements (une ligne / lanes)
+
+Dockerfile              build multi-stage (front + runtime, user non-root, healthcheck)
 docker-compose.yml
+nginx.example.conf      reverse-proxy HTTPS + en-têtes de sécurité + gzip
 ```
 
 ## Modèle de données

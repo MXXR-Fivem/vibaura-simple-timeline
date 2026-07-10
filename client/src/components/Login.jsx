@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { api } from '../api.js'
 
 export default function Login({ onLogin }) {
+  const uid = useId()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -33,8 +34,9 @@ export default function Login({ onLogin }) {
         <p className="login-sub">Espace collaboratif Vibaura</p>
 
         <div className="field">
-          <label>Identifiant</label>
+          <label htmlFor={`${uid}-user`}>Identifiant</label>
           <input
+            id={`${uid}-user`}
             autoFocus
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -42,8 +44,9 @@ export default function Login({ onLogin }) {
           />
         </div>
         <div className="field">
-          <label>Mot de passe</label>
+          <label htmlFor={`${uid}-pass`}>Mot de passe</label>
           <input
+            id={`${uid}-pass`}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

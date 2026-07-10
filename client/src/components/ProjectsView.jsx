@@ -1,22 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { api } from '../api.js'
-import { navigate, routes } from '../router.js'
-import Modal from './Modal.jsx'
+import { navigate, routes } from '../lib/router.js'
+import { usePolling } from '../hooks/usePolling.js'
+import ProjectForm from './ProjectForm.jsx'
 import { IconPlus, IconEdit, IconTrash, IconFolder, IconChevronRight } from './Icons.jsx'
 
 export default function ProjectsView() {
   const [projects, setProjects] = useState(null)
   const [editing, setEditing] = useState(null) // null | 'new' | project object
 
-  const load = useCallback(() => {
-    return api.listProjects().then(setProjects).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    load()
-    const t = setInterval(load, 8000)
-    return () => clearInterval(t)
-  }, [load])
+  const load = useCallback(() => api.listProjects().then(setProjects).catch(() => {}), [])
+  usePolling(load, 8000)
 
   async function remove(p) {
     if (!window.confirm(`Supprimer le projet « ${p.name} » et toutes ses timelines ?`)) return
@@ -84,56 +78,5 @@ export default function ProjectsView() {
         />
       )}
     </div>
-  )
-}
-
-function ProjectForm({ project, onClose, onSaved }) {
-  const [name, setName] = useState(project?.name || '')
-  const [description, setDescription] = useState(project?.description || '')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  async function save() {
-    if (!name.trim()) {
-      setError('Le nom est requis.')
-      return
-    }
-    setBusy(true)
-    try {
-      const data = { name: name.trim(), description }
-      if (project) await api.updateProject(project.id, data)
-      else await api.createProject(data)
-      onSaved()
-    } catch {
-      setError("Échec de l'enregistrement.")
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Modal
-      title={project ? 'Modifier le projet' : 'Nouveau projet'}
-      onClose={onClose}
-      footer={
-        <>
-          <button className="btn" onClick={onClose}>
-            Annuler
-          </button>
-          <button className="btn btn-primary" onClick={save} disabled={busy}>
-            {busy ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
-        </>
-      }
-    >
-      <div className="field">
-        <label>Nom</label>
-        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex : Refonte site" />
-      </div>
-      <div className="field">
-        <label>Description</label>
-        <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optionnel" />
-      </div>
-      {error && <div className="form-error">{error}</div>}
-    </Modal>
   )
 }

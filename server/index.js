@@ -4,23 +4,21 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { apiRouter } from './api.js'
-import {
-  requireAuth,
-  setSession,
-  clearSession,
-  checkCredentials,
-  currentUser,
-  usingInsecureDefaults,
-} from './auth.js'
+import { config, usingInsecureDefaults, insecureConfigReasons } from './config.js'
+import { db } from './db/index.js'
+import { requireAuth } from './auth.js'
+import { authRouter } from './routes/auth.js'
+import { apiRouter } from './routes/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// Refuse de démarrer en production avec des identifiants / secret par défaut.
-if (usingInsecureDefaults && process.env.NODE_ENV === 'production') {
+// Refuse de démarrer en production tant que les identifiants / le secret ne sont
+// pas configurés (valeurs d'exemple, secret trop court...).
+if (usingInsecureDefaults && config.isProduction) {
+  console.error('[FATAL] Configuration non sécurisée en production :')
+  for (const reason of insecureConfigReasons) console.error('  - ' + reason)
   console.error(
-    '[FATAL] AUTH_PASSWORD et/ou SESSION_SECRET manquants (ou valeurs par défaut) en production. ' +
-      'Configure-les dans .env avant de démarrer.'
+    'Configure .env (AUTH_PASSWORD fort + SESSION_SECRET via `openssl rand -hex 32`) avant de démarrer.'
   )
   process.exit(1)
 }
@@ -32,79 +30,54 @@ app.disable('x-powered-by')
 app.use(express.json({ limit: '256kb' }))
 app.use(cookieParser())
 
-// --- petit throttle mémoire pour /api/login (anti brute-force basique) ---
-const attempts = new Map() // ip -> { count, first }
-const WINDOW_MS = 5 * 60 * 1000
-const MAX_ATTEMPTS = 20
-// Purge périodique des entrées expirées : le Map ne grossit pas indéfiniment.
-const sweep = setInterval(() => {
-  const t = Date.now()
-  for (const [ip, rec] of attempts) {
-    if (t - rec.first >= WINDOW_MS) attempts.delete(ip)
-  }
-}, WINDOW_MS)
-sweep.unref?.()
-function loginThrottle(req, res, next) {
-  const ip = req.ip || 'unknown'
-  const rec = attempts.get(ip)
-  const t = Date.now()
-  if (rec && t - rec.first >= WINDOW_MS) attempts.delete(ip) // fenêtre expirée
-  else if (rec && rec.count >= MAX_ATTEMPTS) {
-    return res.status(429).json({ error: 'too_many_attempts' })
-  }
-  next()
-}
-function noteFailure(req) {
-  const ip = req.ip || 'unknown'
-  const t = Date.now()
-  const rec = attempts.get(ip)
-  if (!rec || t - rec.first >= WINDOW_MS) attempts.set(ip, { count: 1, first: t })
-  else rec.count++
-}
-
-// --- auth (public) ---
-app.post('/api/login', loginThrottle, (req, res) => {
-  const { username, password } = req.body || {}
-  if (!checkCredentials(username, password)) {
-    noteFailure(req)
-    return res.status(401).json({ error: 'invalid_credentials' })
-  }
-  attempts.delete(req.ip || 'unknown')
-  setSession(res, username)
-  res.json({ user: username })
-})
-
-app.post('/api/logout', (req, res) => {
-  clearSession(res)
-  res.json({ ok: true })
-})
-
-app.get('/api/me', (req, res) => {
-  const u = currentUser(req)
-  if (!u) return res.status(401).json({ error: 'unauthorized' })
-  res.json({ user: u })
-})
-
-// --- API protégée ---
-app.use('/api', requireAuth, apiRouter)
+// --- API ---
+app.use('/api', authRouter) // login / logout / me (public)
+app.use('/api', requireAuth, apiRouter) // projets / timelines / évènements (protégé)
 
 // --- front statique + fallback SPA ---
 const distDir = path.join(__dirname, '..', 'dist')
 if (fs.existsSync(distDir)) {
-  app.use(express.static(distDir))
+  app.use(
+    express.static(distDir, {
+      index: false,
+      setHeaders: (res, filePath) => {
+        // Assets hashés par contenu => cache long immuable ; index.html jamais caché.
+        if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache')
+        else res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+      },
+    })
+  )
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) return next()
+    res.setHeader('Cache-Control', 'no-cache')
     res.sendFile(path.join(distDir, 'index.html'))
   })
 }
 
-const PORT = process.env.PORT || 8790
-app.listen(PORT, () => {
-  console.log(`Timeline server prêt sur http://localhost:${PORT}`)
+const server = app.listen(config.port, () => {
+  console.log(`Timeline server prêt sur http://localhost:${config.port}`)
   if (usingInsecureDefaults) {
-    console.warn(
-      '[ATTENTION] AUTH_PASSWORD / SESSION_SECRET non définis (ou valeurs par défaut). ' +
-        'Configure-les dans .env avant toute mise en production.'
-    )
+    console.warn('[ATTENTION] Configuration non sécurisée : ' + insecureConfigReasons.join(' ; '))
   }
 })
+
+// --- arrêt propre : ferme le HTTP, checkpoint WAL, ferme SQLite ---
+let shuttingDown = false
+function shutdown(signal) {
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log(`\n${signal} reçu, arrêt en cours…`)
+  server.close(() => {
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)')
+      db.close()
+    } catch {
+      /* ignore */
+    }
+    process.exit(0)
+  })
+  // filet de sécurité si des connexions traînent
+  setTimeout(() => process.exit(0), 5000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

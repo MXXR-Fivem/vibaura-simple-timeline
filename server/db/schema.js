@@ -1,15 +1,6 @@
-import Database from 'better-sqlite3'
-import fs from 'node:fs'
-import path from 'node:path'
-
-const DB_PATH = process.env.DB_PATH || './data/timeline.db'
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
-
-export const db = new Database(DB_PATH)
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
-
-db.exec(`
+// Schéma initial (migration v1). Ne jamais modifier ce bloc pour faire évoluer
+// une table déjà déployée : ajouter une migration dans migrate.js à la place.
+export const INITIAL_SCHEMA = `
   CREATE TABLE IF NOT EXISTS projects (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL,
@@ -48,17 +39,4 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_timelines_project ON timelines(project_id);
   CREATE INDEX IF NOT EXISTS idx_events_timeline   ON events(timeline_id);
-`)
-
-// Migration idempotente : ajoute start_time aux bases créées avant son introduction.
-const eventCols = db.prepare('PRAGMA table_info(events)').all().map((c) => c.name)
-if (!eventCols.includes('start_time')) {
-  db.exec('ALTER TABLE events ADD COLUMN start_time TEXT')
-}
-if (!eventCols.includes('end_time')) {
-  db.exec('ALTER TABLE events ADD COLUMN end_time TEXT')
-}
-
-export function now() {
-  return new Date().toISOString()
-}
+`

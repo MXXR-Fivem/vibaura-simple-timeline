@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { IconX } from './Icons.jsx'
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -63,10 +63,11 @@ export default function Modal({ title, onClose, children, footer, width = 480 })
 }
 
 export function ColorField({ palette, value, onChange, label = 'Couleur' }) {
+  const labelId = useId()
   return (
     <div className="field">
-      <label>{label}</label>
-      <div className="swatches">
+      <label id={labelId}>{label}</label>
+      <div className="swatches" role="group" aria-labelledby={labelId}>
         {palette.map((c) => (
           <button
             key={c}

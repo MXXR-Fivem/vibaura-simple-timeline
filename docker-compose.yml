@@ -4,8 +4,11 @@ services:
     image: vibaura-simple-timeline
     container_name: vibaura-timeline
     restart: unless-stopped
+    # init: true => un vrai PID 1 (tini) qui propage SIGTERM et récolte les zombies,
+    # pour un arrêt propre (le serveur checkpoint le WAL et ferme SQLite).
+    init: true
     # .env optionnel : Compose ne plante pas s'il manque. Le conteneur, lui,
-    # refuse de démarrer sans AUTH_PASSWORD / SESSION_SECRET (fail-fast dans les logs).
+    # refuse de démarrer sans AUTH_PASSWORD / SESSION_SECRET valides (fail-fast dans les logs).
     env_file:
       - path: .env
         required: false
