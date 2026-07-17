@@ -1,0 +1,15 @@
+.fieldRow {
+  display: flex;
+  gap: 12px;
+}
+/* Les enfants directs sont des <Field> : leur classe est hachée dans un autre
+   module, on les cible donc par leur élément racine. */
+.fieldRow > div {
+  flex: 1;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}

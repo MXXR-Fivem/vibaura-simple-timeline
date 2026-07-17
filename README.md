@@ -4,8 +4,8 @@ Outil collaboratif léger pour visualiser des **timelines horizontales** : on cr
 **projets**, dans chaque projet des **timelines** (date de début / fin / graduation), et
 sur chaque timeline on ajoute des **évènements** (jalon ou période) en un clic.
 
-- Front : **React** (Vite), sans framework lourd.
-- Back : **Express** + **SQLite** (`better-sqlite3`), un seul fichier de données.
+- Front : **React** (Vite) en **TypeScript**, CSS Modules, sans framework lourd.
+- Back : **Express** + **SQLite** (`better-sqlite3`) en **TypeScript**, un seul fichier de données.
 - Auth : **un seul login/mot de passe partagé**, en dur dans le `.env`.
 - Déploiement : **un seul conteneur Docker**, à mettre derrière ton nginx existant.
 
@@ -46,6 +46,21 @@ Pour tester le rendu de production en local :
 ```bash
 npm run preview           # build le front puis sert tout via Express sur :8790
 ```
+
+### TypeScript
+
+Tout le code (client, serveur, types partagés) est en TypeScript `strict`.
+
+```bash
+npm run typecheck         # tsc -b : vérifie client + serveur + vite.config
+npm run build             # tsc -b (compile le serveur vers build/) puis vite build (front vers dist/)
+```
+
+En dev, le serveur tourne directement sur les sources via `tsx` (aucune étape de build).
+En production c'est le JavaScript compilé de `build/` qui est exécuté.
+
+Les types du contrat d'API vivent dans `shared/types.ts` et sont importés **des deux côtés**
+(alias `@shared/*`) : une divergence client/serveur devient une erreur de compilation.
 
 ---
 
@@ -124,40 +139,62 @@ docker compose up -d
 ## Structure
 
 ```
-server/                 API Express + SQLite
-  index.js              bootstrap : middlewares, montage routes, static/SPA, arrêt propre
-  config.js             lecture unique de l'env + garde-fou (refuse les valeurs d'exemple)
-  auth.js               session cookie signé (HMAC lié aux identifiants), comparaison sûre
-  validation.js         validateurs partagés (dates ISO, heures, couleurs, id)
+shared/
+  types.ts              contrat d'API partagé client <-> serveur (entités, payloads)
+
+server/                 API Express + SQLite (TypeScript, compilé vers build/)
+  index.ts              bootstrap : middlewares, montage routes, static/SPA, arrêt propre
+  config.ts             lecture unique de l'env + garde-fou (refuse les valeurs d'exemple)
+  paths.ts              racine du projet + dossier des assets (dev et compilé)
+  auth.ts               session cookie signé (HMAC lié aux identifiants), comparaison sûre
+  validation.ts         prédicats de type partagés (dates ISO, heures, couleurs, id)
   middleware/
-    rateLimit.js        throttle mémoire de /api/login
+    rateLimit.ts        throttle mémoire de /api/login
   routes/
-    auth.js             login / logout / me (public)
-    projects.js         CRUD projets
-    timelines.js        CRUD timelines
-    events.js           CRUD évènements (+ normalisation jalon/bloc)
-    helpers.js          bad(), touch parent (updated_at)
-    index.js            compose les routers protégés
+    auth.ts             login / logout / me (public)
+    projects.ts         CRUD projets
+    timelines.ts        CRUD timelines
+    events.ts           CRUD évènements (+ normalisation jalon/bloc)
+    helpers.ts          bad(), lecture du corps, touch parent (updated_at)
+    index.ts            compose les routers protégés
   db/
-    index.js            connexion SQLite + pragmas (WAL, busy_timeout)
-    schema.js           schéma initial
-    migrate.js          migrations versionnées (PRAGMA user_version)
+    index.ts            connexion SQLite + pragmas (WAL, busy_timeout)
+    schema.ts           schéma initial
+    migrate.ts          migrations versionnées (PRAGMA user_version)
 
-client/src/             front React (Vite)
-  App.jsx               auth + routing par hash
-  api.js                client HTTP (fetch, même origine)
-  lib/                  utilitaires purs : dates.js, colors.js, router.js
+client/src/             front React (Vite, TypeScript, CSS Modules)
+  App.tsx               shell applicatif + routing par hash
+  main.tsx              point d'entrée
+  styles/               tokens.css (variables), reset.css, animations.css  <- seul CSS global
+  api/                  client.ts (transport, ApiError) + index.ts (endpoints typés)
+  lib/                  utilitaires purs : dates.ts, colors.ts, router.ts, cx.ts
   hooks/                usePolling (rafraîchissement), useEntity (404 vs erreur)
-  components/           vues, formulaires (Project/Timeline), Login, Modal, EventPopover
-  timeline/
-    Timeline.jsx        composant (zoom / pan / gestes, rendu des évènements)
-    canvas.js           dessin du décor (graduations, règle, marqueurs)
-    layout.js           placement des évènements (une ligne / lanes)
+  ui/                   primitives sans logique métier, une par dossier :
+                        Button, IconButton, Field, FormError, Loading, BackLink,
+                        EmptyState, Page, IndexList, Modal, ColorField, Swatch,
+                        SegmentedControl, Icons
+  features/             une vue = un dossier (.tsx + .module.css)
+    auth/               LoginScreen
+    projects/           ProjectsView, ProjectForm
+    timelines/          TimelinesView, TimelineForm, TimelineView
+    events/             EventPopover
+  timeline/             moteur de frise
+    Timeline/           composant (zoom / pan / gestes, rendu des évènements)
+    EventHoverCard/     carte d'infos au survol
+    canvas.ts           dessin du décor (graduations, règle, marqueurs)
+    layout.ts           placement des évènements (une ligne / lanes)
 
-Dockerfile              build multi-stage (front + runtime, user non-root, healthcheck)
+dist/                   front buildé (Vite)         — généré
+build/                  serveur compilé (tsc)       — généré
+Dockerfile              build multi-stage (front + serveur + runtime non-root, healthcheck)
 docker-compose.yml
 nginx.example.conf      reverse-proxy HTTPS + en-têtes de sécurité + gzip
 ```
+
+**Conventions front** : chaque composant est un dossier `X/X.tsx` + `X.module.css`.
+Aucune classe globale : le seul CSS partagé est `styles/` (variables, reset, keyframes).
+Ce qui est réutilisé par plusieurs vues devient une primitive `ui/`, jamais une classe
+copiée — et les styles communs se composent (`composes: … from …`).
 
 ## Modèle de données
 

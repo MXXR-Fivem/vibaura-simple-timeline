@@ -1,0 +1,60 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  animation: pop 0.14s ease-out;
+}
+
+/* Déclarée ici et pas dans un fichier global : les modules CSS renomment TOUTE
+   référence d'animation, y compris vers des keyframes globales — le nom pointe
+   alors dans le vide et l'animation ne joue jamais. Chaque module possède la
+   sienne. */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.head h2 {
+  font-size: 16px;
+  margin: 0;
+}
+
+/* Seule zone défilante : le pied reste donc toujours atteignable. */
+.body {
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.foot {
+  display: flex;
+  gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+  align-items: center;
+}

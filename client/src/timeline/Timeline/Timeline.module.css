@@ -1,0 +1,106 @@
+.app {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  touch-action: none;
+  overflow: hidden;
+}
+.app:active {
+  cursor: grabbing;
+}
+.grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+}
+.events {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* ---------- events on the line ---------- */
+.pt {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.pt .dot {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--bg);
+}
+.pt .stem {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.pt .lbl {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: #f0f0f3;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+.pt .lblTime {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+}
+.pt.lane {
+  transform: translateY(-50%);
+}
+.pt.lane .lblRight {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: #f0f0f3;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+.blk {
+  position: absolute;
+  height: 22px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.blk.lane {
+  transform: translateY(-50%);
+}
+.blkStem {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+.blkFill {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  border: 1px solid;
+  border-left-width: 3px;
+}
+.blkLbl {
+  position: absolute;
+  left: 9px;
+  right: 6px;
+  top: 0;
+  line-height: 22px;
+  font-size: 12px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}

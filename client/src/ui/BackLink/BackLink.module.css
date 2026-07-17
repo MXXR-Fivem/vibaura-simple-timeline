@@ -1,0 +1,15 @@
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13.5px;
+  padding: 0;
+  margin-bottom: 8px;
+}
+.backLink:hover {
+  color: var(--text);
+}

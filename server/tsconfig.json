@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    // Dans build/ (et non node_modules/.tmp) : supprimer build/ doit aussi
+    // invalider le cache, sinon tsc croit les sorties encore présentes.
+    "tsBuildInfoFile": "../build/tsconfig.server.tsbuildinfo",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "rootDir": "..",
+    "outDir": "../build",
+    "sourceMap": true
+  },
+  "include": [".", "../shared"]
+}

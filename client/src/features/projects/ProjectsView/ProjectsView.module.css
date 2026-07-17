@@ -1,0 +1,4 @@
+/* Description d'un projet sous son titre : sous-titre de liste, sans variante. */
+.desc {
+  composes: subtitle from '../../../ui/IndexList/IndexList.module.css';
+}

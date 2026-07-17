@@ -1,0 +1,154 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+}
+
+.popover {
+  --pop-top: 92px; /* topbar 54px + toolbar */
+  --pop-gap: 12px;
+
+  position: fixed;
+  top: var(--pop-top);
+  z-index: 20;
+  max-width: calc(100vw - 2 * var(--pop-gap));
+  /* dvh suit la barre d'URL mobile ; vh est le repli. */
+  max-height: calc(100vh - var(--pop-top) - var(--pop-gap));
+  max-height: calc(100dvh - var(--pop-top) - var(--pop-gap));
+
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: pop 0.12s ease-out;
+}
+
+/* Seule zone défilante : en position fixed, rien ne défile hors de la boîte. */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 14px 0;
+}
+
+/* Hors du scroll => les actions restent visibles et cliquables. */
+.actions {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Aligne à droite dans les DEUX modes. En création il n'y a pas de bouton
+     Supprimer pour porter le `margin-inline-end: auto` ci-dessous : sans ça,
+     Annuler/Enregistrer retomberaient à gauche. */
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 14px 14px;
+  background: var(--panel);
+}
+
+/* Pousse Annuler/Enregistrer à droite sans occuper de place propre : un
+   `flex: 1` renverrait Enregistrer seul sur la 2e ligne dès que ça se replie. */
+.delete {
+  margin-inline-end: auto;
+}
+
+.title {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  color: #fff;
+  font-size: 15px;
+  padding: 4px 0 8px;
+}
+.title:focus {
+  box-shadow: none;
+  border-bottom-color: var(--border-strong);
+}
+
+.kind {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 8px;
+  font-family: var(--mono);
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.fld {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+.fld > span {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* `textarea { resize: vertical }` est global et non borné : sans plafond, on
+   peut étirer la note jusqu'à repousser les actions hors de la boîte. */
+
+.swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.actions button {
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.primary {
+  background: var(--line);
+  color: #0a0a0c;
+  font-weight: 600;
+}
+.ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--muted-2);
+}
+.ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.danger {
+  background: transparent;
+  border-color: rgba(255, 90, 90, 0.35);
+  color: var(--danger);
+}
+.danger:hover {
+  background: rgba(255, 90, 90, 0.1);
+}
+
+/* Déclarée ici et pas dans un fichier global : les modules CSS renomment TOUTE
+   référence d'animation, y compris vers des keyframes globales — le nom pointe
+   alors dans le vide et l'animation ne joue jamais. Chaque module possède la
+   sienne. */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+}

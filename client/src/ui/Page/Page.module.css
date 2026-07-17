@@ -1,0 +1,34 @@
+.page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px clamp(16px, 5vw, 44px) 64px;
+}
+.inner {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 8px 0 26px;
+  flex-wrap: wrap;
+}
+.head h1 {
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  margin: 0 0 3px;
+}
+.head p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 20px 16px;
+  }
+}

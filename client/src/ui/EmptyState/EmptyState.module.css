@@ -1,0 +1,13 @@
+.empty {
+  text-align: center;
+  padding: 64px 20px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+/* L'icône est rendue en enfant direct : le sélecteur doit le rester. */
+.empty > svg {
+  color: rgba(255, 255, 255, 0.2);
+}
