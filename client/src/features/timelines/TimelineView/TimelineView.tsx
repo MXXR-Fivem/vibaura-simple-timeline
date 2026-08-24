@@ -117,8 +117,8 @@ export function TimelineView({ projectId, timelineId }: TimelineViewProps) {
 
         <div className={s.toolbarRight}>
           <SegmentedControl<TimelineMode> options={MODES} value={mode} onChange={setMode} />
-          <Button size="sm" onClick={() => tlRef.current?.today()}>
-            <IconClock width={15} height={15} /> Aujourd'hui
+          <Button onClick={() => tlRef.current?.today()}>
+            <IconClock /> Aujourd'hui
           </Button>
           <div className={s.zoomGroup}>
             <IconButton title="Dézoomer" onClick={() => tlRef.current?.zoomOut()}>
