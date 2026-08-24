@@ -8,6 +8,10 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
 
+// Exposés pour que les schémas d'outils MCP valident les mêmes formes que les
+// prédicats ci-dessous : une seule définition, deux points d'application.
+export const PATTERNS = { date: ISO_DATE, time: HHMM, hexColor: HEX_COLOR } as const
+
 /** Valide la forme ET la validité calendaire (rejette 2024-02-30, 0000-01-01, etc.) */
 export function isDate(s: unknown): s is IsoDate {
   if (typeof s !== 'string' || !ISO_DATE.test(s)) return false

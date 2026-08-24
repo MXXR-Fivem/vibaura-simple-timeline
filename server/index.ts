@@ -9,6 +9,7 @@ import { db } from './db/index.js'
 import { requireAuth } from './auth.js'
 import { authRouter } from './routes/auth.js'
 import { apiRouter } from './routes/index.js'
+import { MCP_PATH, mountMcp } from './mcp/index.js'
 
 // Refuse de démarrer en production tant que les identifiants / le secret ne sont
 // pas configurés (valeurs d'exemple, secret trop court...).
@@ -30,6 +31,8 @@ app.use(cookieParser())
 
 // --- API ---
 app.use('/api', authRouter) // login / logout / me (public)
+// MCP avant requireAuth : les agents s'authentifient au bearer, pas au cookie.
+const mcpUsers = mountMcp(app)
 app.use('/api', requireAuth, apiRouter) // projets / timelines / évènements (protégé)
 
 // --- front statique + fallback SPA ---
@@ -53,6 +56,8 @@ if (fs.existsSync(publicDir)) {
 
 const server = app.listen(config.port, () => {
   console.log(`Timeline server prêt sur http://localhost:${config.port}`)
+  if (mcpUsers) console.log(`MCP monté sur ${MCP_PATH} pour : ${mcpUsers.join(', ')}`)
+  else console.log('MCP désactivé (aucun MCP_TOKENS configuré)')
   if (usingInsecureDefaults) {
     console.warn('[ATTENTION] Configuration non sécurisée : ' + insecureConfigReasons.join(' ; '))
   }

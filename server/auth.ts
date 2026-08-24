@@ -71,6 +71,19 @@ export function checkCredentials(username: unknown, password: unknown): boolean 
   return okUser && okPass
 }
 
+/**
+ * Token d'agent MCP -> nom du dev, ou null. Comparaison à temps constant sur
+ * chaque entrée (et pas un simple `Map.get`) : le token vaut un droit d'écriture
+ * sur toute la base, il mérite le même soin que le mot de passe.
+ */
+export function matchMcpToken(raw: unknown): string | null {
+  let found: string | null = null
+  for (const [token, name] of config.mcpTokens) {
+    if (safeEqual(raw ?? '', token)) found = name // pas de break : durée constante
+  }
+  return found
+}
+
 export function setSession(res: Response): void {
   res.cookie(COOKIE, makeToken(), {
     httpOnly: true,

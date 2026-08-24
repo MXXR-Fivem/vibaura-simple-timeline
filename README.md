@@ -150,13 +150,23 @@ server/                 API Express + SQLite (TypeScript, compilé vers build/)
   validation.ts         prédicats de type partagés (dates ISO, heures, couleurs, id)
   middleware/
     rateLimit.ts        throttle mémoire de /api/login
-  routes/
+  backup.ts             journal des écritures + instantanés JSON (data/backups/)
+  routes/               façades HTTP : parsent l'URL, délèguent aux services
     auth.ts             login / logout / me (public)
     projects.ts         CRUD projets
     timelines.ts        CRUD timelines
-    events.ts           CRUD évènements (+ normalisation jalon/bloc)
-    helpers.ts          bad(), lecture du corps, touch parent (updated_at)
+    events.ts           CRUD évènements
+    helpers.ts          bad(), lecture du corps
     index.ts            compose les routers protégés
+  services/             TOUTE la logique d'écriture (validation, transaction, journal)
+    base.ts             type Result, touch parent (updated_at)
+    projects.ts         projets
+    timelines.ts        timelines
+    events.ts           évènements (+ normalisation jalon/bloc)
+    history.ts          journal, rollback, instantanés
+  mcp/                  serveur MCP pour les agents (Claude, Codex, Gemini)
+    index.ts            auth par token + montage sur /api/mcp
+    tools.ts            définition des 17 outils
   db/
     index.ts            connexion SQLite + pragmas (WAL, busy_timeout)
     schema.ts           schéma initial
@@ -206,3 +216,90 @@ Un évènement devient un **bloc** (period) automatiquement dès que sa fin tomb
 que son début ; sinon c'est un **jalon** (point). Au survol, une carte affiche toutes ses infos.
 
 Suppressions en cascade (supprimer un projet supprime ses timelines et leurs évènements).
+
+---
+
+## Serveur MCP (agents Claude / Codex / Gemini)
+
+L'app expose un **endpoint MCP sur `/api/mcp`**, servi par le même process que le site.
+Les agents des devs s'y branchent et peuvent lire et écrire dans les frises, avec les
+**mêmes validations que l'UI** : les routes HTTP et les outils MCP appellent la même
+couche `server/services/`, aucun chemin d'écriture ne la contourne.
+
+### Activer
+
+Un token par dev dans `.env` — c'est ce nom qui est attribué à chaque écriture :
+
+```bash
+# openssl rand -hex 32, une fois par personne
+MCP_TOKENS=theo:0f3c…,alice:9b21…,bob:44de…
+```
+
+Sans `MCP_TOKENS`, l'endpoint n'est **pas monté du tout**. Le serveur refuse de démarrer en
+production si un token fait moins de 32 caractères. Révoquer quelqu'un = retirer son entrée
+et redémarrer ; les autres tokens restent valables.
+
+### Brancher son agent
+
+```bash
+# Claude Code
+claude mcp add --transport http vibaura-timeline https://timeline.exemple.com/api/mcp \
+  -H "Authorization: Bearer $VIBAURA_TOKEN"
+```
+
+```toml
+# Codex — ~/.codex/config.toml
+[mcp_servers.vibaura_timeline]
+url = "https://timeline.exemple.com/api/mcp"
+bearer_token_env_var = "VIBAURA_TOKEN"
+```
+
+```json
+// Gemini CLI — settings.json
+{
+  "mcpServers": {
+    "vibaura-timeline": {
+      "httpUrl": "https://timeline.exemple.com/api/mcp",
+      "headers": { "Authorization": "Bearer $VIBAURA_TOKEN" }
+    }
+  }
+}
+```
+
+L'endpoint sert les **deux révisions du protocole** sur la même URL : la moderne
+(`2026-07-28`, sans handshake) et l'ancienne (`2025-*`, avec `initialize`). Les clients ne
+sont pas tous au même point ; aucun réglage à faire de leur côté.
+
+### Les outils
+
+| Lecture | Écriture | Sécurité |
+|---|---|---|
+| `list_projects` | `create_project` / `update_project` / `delete_project` | `list_changes` |
+| `list_timelines` | `create_timeline` / `update_timeline` / `delete_timeline` | `rollback` |
+| `list_events` | `create_event` / `update_event` / `delete_event` | `list_backups` / `create_backup` / `restore_backup` |
+
+### Sauvegardes et rollback
+
+Deux mécanismes, dans `data/backups/` (donc dans le volume Docker) :
+
+- **`journal.jsonl`** — une ligne par écriture, **UI comprise**, avec l'état des lignes
+  touchées avant et après. Chaque écriture renvoie un `change_id` ; `rollback` le rejoue à
+  l'envers (réinsère ce qui a été supprimé, supprime ce qui a été créé, restaure ce qui a été
+  modifié). Ne touche **que** les lignes concernées. Le rollback est lui-même journalisé,
+  donc réversible. Rotation à 2000 entrées, 5 fichiers gardés.
+- **`snapshots/*.json`** — copies complètes de la base, prises automatiquement avant chaque
+  suppression en cascade (projet, timeline) et avant chaque restauration, plus à la demande
+  via `create_backup`. Les 50 plus récentes sont gardées. `restore_backup` **remplace tout** :
+  à réserver aux dégâts qu'un `rollback` ne rattrape pas.
+
+**Garde-fou anti-écrasement** : si les lignes visées ont bougé depuis (un collègue est repassé
+dessus dans l'UI, un autre agent a écrit), `rollback` refuse et renvoie le détail du conflit.
+`force: true` passe outre — et écrase leur travail.
+
+### Ce que ça ne fait pas
+
+- **Pas de throttle sur les écritures** (seul `/api/login` en a un). Un agent en boucle peut
+  spammer la base ; à 3 devs derrière nginx c'est acceptable, sinon poser un `limit_req` sur
+  `/api/mcp`.
+- **Le token vaut un accès complet** : lecture et écriture sur tous les projets. Pas de
+  périmètre par dev, pas de lecture seule.
